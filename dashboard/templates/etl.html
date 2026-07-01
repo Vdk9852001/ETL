@@ -472,7 +472,7 @@ function refreshStatus(){
       var cls = l.includes('⚠')?'warn':l.includes('✗')?'error':'';
       return '<div class="log-line '+cls+'">'+esc(l)+'</div>';
     }).join('');
-    checkSetupReady();
+    checkSetupReady(d);  // ← FIX 3: pass data, no second fetch
   }).catch(function(){});
 }
 
@@ -517,7 +517,10 @@ function uploadFile(input, endpoint){
         stat.textContent='✓ '+data.file+(data.sheets?' ('+data.sheets.length+' sheets)':'');
         stat.style.color='var(--pass)';
       }
-      checkSetupReady();
+      // Re-fetch status now that server has registered the file, then check ready
+      fetch('/api/status').then(function(r){return r.json();}).then(function(st){
+        checkSetupReady(st);
+      });
       input.value='';
     })
     .catch(function(e){stat.textContent='✗ Error';stat.style.color='var(--fail)';});
@@ -543,17 +546,23 @@ function setConfig(){
   if(!obj) return;
   fetch('/api/config',{method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({sap_object:obj,preferred_lang:lang})});
+    body:JSON.stringify({sap_object:obj,preferred_lang:lang})
+  }).then(function(){ checkSetupReady(); });  // ← FIX 1: re-check after config saved
 }
 
-function checkSetupReady(){
-  fetch('/api/status').then(function(r){return r.json();}).then(function(d){
-    var ready = d.template_path && d.source_tables && d.source_tables.length > 0 && d.sap_object;
+function checkSetupReady(d){
+  // d can be passed in from refreshStatus to avoid a second fetch
+  function _check(data){
+    var ready = data.template_path &&
+                data.source_tables && data.source_tables.length > 0 &&
+                data.sap_object;
     document.getElementById('btn-start').disabled = !ready;
     document.getElementById('setup-msg').textContent = ready
       ? '✓ Ready — click Next to run Extract'
       : 'Upload field template + source tables and select SAP object';
-  });
+  }
+  if(d){ _check(d); return; }
+  fetch('/api/status').then(function(r){return r.json();}).then(_check);
 }
 
 // ── Pipeline steps ────────────────────────────────────────────────────────────
