@@ -1,0 +1,33 @@
+{
+  "PRODUCT": {
+    "waers": {
+      "trigger_files": ["S_MBEW", "S_MBEW_CURRENT", "S_MBEW_FUTURE"],
+      "key_col":   "BWKEY",
+      "target_col":"WAERS",
+      "mapping": {
+        "USP1":"USD","USP2":"USD","USP3":"USD","USP4":"USD","UPS5":"USD","USP6":"USD",
+        "CNP1":"CNY","CNP2":"CNY",
+        "CHP1":"CHF","CHP2":"CHF",
+        "DEP1":"EUR",
+        "SGP1":"SGD","SGP2":"SGD","SGP3":"SGD",
+        "MXP1":"MXN","MXP2":"MXN"
+      }
+    },
+    "constants": {
+      "trigger_files": ["S_MBEW", "S_MBEW_CURRENT", "S_MBEW_FUTURE"],
+      "fields": {
+        "MLAST": "3",
+        "CURTP": "10"
+      }
+    },
+    "entitled": {
+      "trigger_files": ["S_MATLWH", "S_MATLWHST"],
+      "key_col":   "LGNUM",
+      "target_col":"ENTITLED",
+      "mapping": {
+        "BRN1":"20000036","MAT1":"20000036",
+        "PU01":"40000003","PU02":"20000035","SH02":"20000037"
+      }
+    }
+  }
+}

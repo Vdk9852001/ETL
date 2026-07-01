@@ -1,0 +1,19 @@
+{
+  "PRODUCT": {
+    "MAKT":    {"base": "MARA", "left_key": "MATNR",  "right_key": "MATNR"},
+    "TB070_CM":{"base": "MLAN", "left_key": "ALAND",  "right_key": "TAX_CTY"}
+  },
+  "CUSTOMER": {
+    "KNVV":    {"base": "KNA1", "left_key": "KUNNR",  "right_key": "KUNNR"},
+    "KNB1":    {"base": "KNA1", "left_key": "KUNNR",  "right_key": "KUNNR"}
+  },
+  "VENDOR": {
+    "LFB1":    {"base": "LFA1", "left_key": "LIFNR",  "right_key": "LIFNR"},
+    "LFM1":    {"base": "LFA1", "left_key": "LIFNR",  "right_key": "LIFNR"}
+  },
+  "MATERIAL": {
+    "MAKT":    {"base": "MARA", "left_key": "MATNR",  "right_key": "MATNR"},
+    "MARC":    {"base": "MARA", "left_key": "MATNR",  "right_key": "MATNR"},
+    "MBEW":    {"base": "MARA", "left_key": "MATNR",  "right_key": "MATNR"}
+  }
+}

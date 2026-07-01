@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SAP ETL Tool</title>
+<style>
+:root{--indigo:#4F46E5;--indigo-l:#EEF2FF;--teal:#0F766E;--teal-l:#CCFBF1;
+  --pass:#16A34A;--pass-bg:#DCFCE7;--fail:#DC2626;--fail-bg:#FEE2E2;
+  --warn:#D97706;--warn-bg:#FEF3C7;--border:#E5E7EB;--muted:#6B7280;
+  --dark:#1A1F36;--surface:#FFFFFF;--surface2:#F8FAFC;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--surface2);color:var(--dark)}
+.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:var(--dark);
+  overflow-y:auto;display:flex;flex-direction:column;z-index:100}
+.main{margin-left:240px;padding:24px;min-height:100vh}
+.sb-logo{padding:18px 18px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo h1{font-size:16px;font-weight:700;color:#C7D2FE;line-height:1.3}
+.sb-logo p{font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+.steps-nav{padding:12px 12px 0}
+.nav-step{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;
+  margin-bottom:3px;cursor:pointer;transition:background .15s}
+.nav-step:hover{background:rgba(255,255,255,.07)}
+.nav-step.active{background:rgba(79,70,229,.35)}
+.nav-step.done{background:rgba(22,163,74,.15)}
+.nav-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;
+  background:rgba(255,255,255,.12);color:rgba(255,255,255,.6)}
+.nav-step.active .nav-num{background:var(--indigo);color:#fff}
+.nav-step.done .nav-num{background:var(--pass);color:#fff;font-size:13px}
+.nav-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.8)}
+.nav-sub{font-size:10px;color:rgba(255,255,255,.4)}
+.sb-files{padding:12px 14px;margin-top:4px}
+.sb-files h3{font-size:10px;font-weight:600;color:rgba(255,255,255,.3);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.sb-file{background:rgba(255,255,255,.06);border-radius:6px;padding:7px 10px;
+  margin-bottom:5px;font-size:11px}
+.sb-file-label{color:rgba(255,255,255,.4);font-size:10px;margin-bottom:2px}
+.sb-file-val{color:#fff;font-weight:500;word-break:break-all}
+.sb-file-val.empty{color:rgba(255,255,255,.2);font-style:italic;font-weight:400}
+.log-box{flex:1;padding:10px 14px;overflow-y:auto;max-height:200px}
+.log-box h3{font-size:10px;font-weight:600;color:rgba(255,255,255,.3);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.log-line{font-size:10px;color:rgba(255,255,255,.55);padding:2px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);line-height:1.4}
+.log-line.warn{color:#FCD34D}.log-line.error{color:#FCA5A5}
+/* Main layout */
+.page-hd{margin-bottom:18px}
+.page-hd h2{font-size:20px;font-weight:700;color:var(--dark)}
+.page-hd p{font-size:13px;color:var(--muted);margin-top:3px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card-hd{display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.card-num{width:26px;height:26px;border-radius:8px;background:var(--indigo-l);
+  color:var(--indigo);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.card-title{font-size:14px;font-weight:600;color:var(--dark)}
+.card-sub{font-size:12px;color:var(--muted);margin-left:auto}
+/* Upload zones */
+.upload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:18px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--indigo);background:var(--indigo-l)}
+.upload-zone.loaded{border-color:var(--pass);border-style:solid;background:var(--pass-bg)}
+.upload-zone.loaded:hover{background:#bbf7d0}
+.uz-icon{font-size:26px;margin-bottom:8px}
+.uz-title{font-size:12px;font-weight:600;margin-bottom:3px}
+.uz-hint{font-size:11px;color:var(--muted)}
+.uz-status{font-size:11px;color:var(--pass);font-weight:600;margin-top:5px}
+/* Source table chips */
+.table-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.table-chip{display:inline-flex;align-items:center;gap:5px;background:var(--teal-l);
+  color:var(--teal);border:1px solid rgba(15,118,110,.2);border-radius:6px;
+  padding:3px 10px;font-size:12px;font-weight:600}
+.table-chip button{background:none;border:none;cursor:pointer;color:var(--teal);
+  font-size:13px;line-height:1;padding:0}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;
+  font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--indigo);color:#fff}
+.btn-primary:hover{background:#3730A3}
+.btn-primary:disabled{background:#9CA3AF;cursor:not-allowed}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-teal:hover{background:#134E4A}
+.btn-ghost{background:var(--surface);border:1px solid var(--border);color:var(--dark)}
+.btn-ghost:hover{background:var(--surface2)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+/* Form */
+.form-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.form-label{font-size:12px;font-weight:600;min-width:130px}
+.form-select,.form-input{padding:7px 10px;border:1px solid var(--border);border-radius:7px;
+  font-size:13px;background:var(--surface);color:var(--dark)}
+/* Pipeline progress */
+.pipeline-bar{display:flex;align-items:center;gap:0;margin-bottom:18px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.pipe-step{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:600;
+  color:var(--muted);border-right:1px solid var(--border);transition:all .2s}
+.pipe-step:last-child{border-right:none}
+.pipe-step.done{background:var(--pass-bg);color:var(--pass)}
+.pipe-step.active{background:var(--indigo-l);color:var(--indigo)}
+/* Data tables */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{background:var(--surface2);color:var(--muted);font-size:10px;
+  font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+  padding:7px 11px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:7px 11px;border-bottom:1px solid var(--border);
+  font-family:monospace;vertical-align:top}
+.data-table tr:hover td{background:var(--surface2)}
+/* Result tables */
+.result-table{width:100%;border-collapse:collapse;font-size:13px}
+.result-table th{background:var(--indigo);color:#fff;padding:9px 13px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.result-table td{padding:8px 13px;border-bottom:1px solid var(--border)}
+.result-table tr:hover td{background:var(--surface2)}
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700}
+.badge-pass{background:var(--pass-bg);color:var(--pass)}
+.badge-fail{background:var(--fail-bg);color:var(--fail)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-info{background:var(--indigo-l);color:var(--indigo)}
+/* Tabs */
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:14px}
+.tab{padding:7px 14px;font-size:13px;font-weight:500;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab.active{color:var(--indigo);border-bottom-color:var(--indigo);font-weight:600}
+.tab-panel{display:none}.tab-panel.active{display:block}
+/* Info boxes */
+.info{border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:10px}
+.info-info{background:#DBEAFE;color:#1E40AF}
+.info-warn{background:var(--warn-bg);color:#92400E}
+.info-ok{background:var(--pass-bg);color:#166534}
+.info-err{background:var(--fail-bg);color:#991B1B}
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.kpi-val{font-size:26px;font-weight:700;color:var(--dark)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.kpi-val.ok{color:var(--pass)}.kpi-val.warn{color:var(--warn)}.kpi-val.fail{color:var(--fail)}
+/* Spinner */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+  display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.spin-box{background:#fff;border-radius:12px;padding:28px 38px;text-align:center}
+.spin{width:38px;height:38px;border:4px solid var(--border);border-top-color:var(--indigo);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <h1>SAP ETL Tool</h1>
+    <p>Extract · Transform · Load</p>
+  </div>
+
+  <div class="steps-nav">
+    <div class="nav-step active" id="nav-0" onclick="goStep(0)">
+      <div class="nav-num">1</div>
+      <div><div class="nav-label">Setup</div><div class="nav-sub">Object + files</div></div>
+    </div>
+    <div class="nav-step" id="nav-1" onclick="goStep(1)">
+      <div class="nav-num">2</div>
+      <div><div class="nav-label">Extract</div><div class="nav-sub">Parse field map</div></div>
+    </div>
+    <div class="nav-step" id="nav-2" onclick="goStep(2)">
+      <div class="nav-num">3</div>
+      <div><div class="nav-label">Transform</div><div class="nav-sub">Apply field mapping</div></div>
+    </div>
+    <div class="nav-step" id="nav-3" onclick="goStep(3)">
+      <div class="nav-num">4</div>
+      <div><div class="nav-label">Value Map</div><div class="nav-sub">Apply value lookups</div></div>
+    </div>
+    <div class="nav-step" id="nav-4" onclick="goStep(4)">
+      <div class="nav-num">5</div>
+      <div><div class="nav-label">Export</div><div class="nav-sub">Download output</div></div>
+    </div>
+  </div>
+
+  <div class="sb-files">
+    <h3>Loaded Files</h3>
+    <div class="sb-file">
+      <div class="sb-file-label">SAP Object</div>
+      <div class="sb-file-val empty" id="sb-obj">not set</div>
+    </div>
+    <div class="sb-file">
+      <div class="sb-file-label">Field Template</div>
+      <div class="sb-file-val empty" id="sb-tmpl">not loaded</div>
+    </div>
+    <div class="sb-file">
+      <div class="sb-file-label">Value Mapping</div>
+      <div class="sb-file-val empty" id="sb-vmap">not loaded</div>
+    </div>
+    <div class="sb-file">
+      <div class="sb-file-label">Source Tables</div>
+      <div class="sb-file-val empty" id="sb-src">none</div>
+    </div>
+  </div>
+
+  <div class="log-box">
+    <h3>Activity Log</h3>
+    <div id="log-content"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Progress bar -->
+  <div class="pipeline-bar">
+    <div class="pipe-step active" id="pipe-0">1. Setup</div>
+    <div class="pipe-step" id="pipe-1">2. Extract</div>
+    <div class="pipe-step" id="pipe-2">3. Transform</div>
+    <div class="pipe-step" id="pipe-3">4. Value Map</div>
+    <div class="pipe-step" id="pipe-4">5. Export</div>
+  </div>
+
+  <!-- ── STEP 0: Setup ── -->
+  <div id="step-0">
+    <div class="page-hd">
+      <h2>Setup</h2>
+      <p>Select the SAP object and upload all required files before running the ETL pipeline</p>
+    </div>
+
+    <!-- SAP Object -->
+    <div class="card">
+      <div class="card-hd"><div class="card-num">A</div>
+        <div class="card-title">SAP Object &amp; Language</div></div>
+      <div class="form-row">
+        <span class="form-label">SAP Object</span>
+        <select class="form-select" id="sap-obj-sel" onchange="setConfig()">
+          <option value="">-- select --</option>
+          <option value="PRODUCT">PRODUCT</option>
+          <option value="CUSTOMER">CUSTOMER</option>
+          <option value="VENDOR">VENDOR</option>
+          <option value="MATERIAL">MATERIAL</option>
+        </select>
+        <input type="text" class="form-input" id="sap-obj-custom"
+               placeholder="or type custom object..." oninput="setConfig()"
+               style="max-width:200px">
+      </div>
+      <div class="form-row">
+        <span class="form-label">Preferred Language</span>
+        <select class="form-select" id="lang-sel" onchange="setConfig()">
+          <option value="E">E — English</option>
+          <option value="D">D — German</option>
+          <option value="F">F — French</option>
+          <option value="Z">Z — Chinese</option>
+        </select>
+        <span style="font-size:11px;color:var(--muted)">Used to filter MAKT/text tables</span>
+      </div>
+    </div>
+
+    <!-- File uploads -->
+    <div class="card">
+      <div class="card-hd"><div class="card-num">B</div>
+        <div class="card-title">Upload Files</div></div>
+      <div class="upload-grid">
+        <div class="upload-zone" id="zone-tmpl" onclick="pick('tmpl')">
+          <input type="file" id="inp-tmpl" accept=".xlsx,.xls" style="display:none"
+                 onchange="uploadFile(this,'template')">
+          <div class="uz-icon">📋</div>
+          <div class="uz-title">Field Mapping Template</div>
+          <div class="uz-hint">Product_Template.xlsx<br>S4_Table / S4_Field / S47_Table / S47_Field</div>
+          <div class="uz-status" id="st-tmpl"></div>
+        </div>
+        <div class="upload-zone" id="zone-vmap" onclick="pick('vmap')">
+          <input type="file" id="inp-vmap" accept=".xlsx,.xls" style="display:none"
+                 onchange="uploadFile(this,'valuemap')">
+          <div class="uz-icon">🗺️</div>
+          <div class="uz-title">Value Mapping Workbook</div>
+          <div class="uz-hint">ValueMapping.xlsx<br>One sheet per field — SAP47_Value / S4_Value</div>
+          <div class="uz-status" id="st-vmap"></div>
+        </div>
+        <div class="upload-zone" id="zone-src" onclick="pick('src')">
+          <input type="file" id="inp-src" accept=".csv,.xlsx,.xls" style="display:none"
+                 multiple onchange="uploadFile(this,'source')">
+          <div class="uz-icon">📂</div>
+          <div class="uz-title">Legacy Source Tables</div>
+          <div class="uz-hint">MARA.csv, MAKT.csv, MLAN.csv…<br>Select multiple files</div>
+          <div class="uz-status" id="st-src"></div>
+        </div>
+      </div>
+      <div class="table-chips" id="table-chips"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-start" onclick="goStep(1)" disabled>
+        Next: Run Extract →
+      </button>
+      <span id="setup-msg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <!-- ── STEP 1: Extract ── -->
+  <div id="step-1" style="display:none">
+    <div class="page-hd">
+      <h2>Extract</h2>
+      <p>Parse the field mapping template and load all legacy source tables</p>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-num">E</div>
+        <div class="card-title">Run Extract</div>
+        <div class="card-sub">Reads Product_Template.xlsx and all source CSVs</div>
+      </div>
+      <div class="info info-info">
+        This step reads your field mapping template (S4_Table / S4_Field / S47_Table / S47_Field)
+        and loads all uploaded legacy source tables into memory. No files are written to disk yet.
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runStep('extract')">▶ Run Extract</button>
+        <button class="btn btn-ghost" onclick="goStep(0)">← Back</button>
+      </div>
+      <div id="extract-result" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Transform ── -->
+  <div id="step-2" style="display:none">
+    <div class="page-hd">
+      <h2>Transform — Field Mapping</h2>
+      <p>Fill each S4 target table from legacy source columns using the field map and join rules</p>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-num">T</div>
+        <div class="card-title">Run Field Transformation</div>
+        <div class="card-sub">
+          Applies join rules from config/join_rules.json (e.g. MAKT joins MARA on MATNR)
+        </div>
+      </div>
+      <div class="info info-info">
+        Each S4 target table is filled by pulling columns from the correct legacy tables.
+        Tables that need a JOIN (e.g. MAKT ↔ MARA) are merged automatically.
+        Date fields (YYYYMMDD format) are auto-detected and reformatted.
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runStep('transform')">▶ Run Transform</button>
+        <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+      </div>
+      <div id="transform-result" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Value Map ── -->
+  <div id="step-3" style="display:none">
+    <div class="page-hd">
+      <h2>Value Mapping</h2>
+      <p>Apply value lookup tables and object-specific rules (WAERS, MLAST, CURTP, ENTITLED)</p>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-num">V</div>
+        <div class="card-title">Run Value Mapping</div>
+      </div>
+      <div class="info info-info">
+        Each column in the transformed output is matched against your ValueMapping.xlsx sheets
+        (sheet name = SAP field name). Values are replaced using the SAP47_Value → S4_Value lookup.
+        Object-specific rules (WAERS from BWKEY, MLAST=3, etc.) are applied from config/object_rules.json.
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runStep('valuemap')">▶ Run Value Mapping</button>
+        <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+      </div>
+      <div id="valuemap-result" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 4: Export ── -->
+  <div id="step-4" style="display:none">
+    <div class="page-hd">
+      <h2>Export &amp; Download</h2>
+      <p>Write the final LTMC-ready files and download them</p>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-num">L</div>
+        <div class="card-title">Export Output</div>
+      </div>
+      <div class="form-row" style="margin-bottom:14px">
+        <span class="form-label">Output Format</span>
+        <select class="form-select" id="export-fmt">
+          <option value="csv">CSV (one file per S4 table)</option>
+          <option value="xlsx">Excel (one file per S4 table)</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-teal" onclick="runExport()">💾 Export Files</button>
+        <a class="btn btn-primary" href="/api/download/all" id="dl-all" style="display:none">
+          📥 Download All as ZIP
+        </a>
+        <a class="btn btn-ghost" href="/api/download/log">📄 Download Log</a>
+        <button class="btn btn-ghost" onclick="goStep(3)">← Back</button>
+        <button class="btn btn-ghost" onclick="resetAll()" style="margin-left:auto">
+          🔄 Start New Run
+        </button>
+      </div>
+      <div id="export-result" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Preview panel -->
+    <div class="card" id="preview-card" style="display:none">
+      <div class="card-hd"><div class="card-num">👁</div>
+        <div class="card-title">Preview Data</div>
+        <div class="card-sub" style="display:flex;gap:8px;align-items:center">
+          Stage:
+          <select class="form-select" id="prev-stage" style="font-size:12px;padding:4px 7px">
+            <option value="raw">Raw (source)</option>
+            <option value="transform">After field mapping</option>
+            <option value="mapped" selected>After value mapping</option>
+          </select>
+          Table:
+          <select class="form-select" id="prev-table" style="font-size:12px;padding:4px 7px"></select>
+          <button class="btn btn-ghost btn-sm" onclick="loadPreview()">Preview</button>
+        </div>
+      </div>
+      <div id="preview-content"></div>
+    </div>
+
+    <!-- Unmapped summary -->
+    <div class="card" id="unmapped-card" style="display:none">
+      <div class="card-hd"><div class="card-num">⚠️</div>
+        <div class="card-title">Unmapped Values</div>
+        <div class="card-sub">Values with no rule in ValueMapping.xlsx — passed through unchanged</div>
+      </div>
+      <div id="unmapped-content"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Spinner -->
+<div class="overlay" id="overlay">
+  <div class="spin-box">
+    <div class="spin"></div>
+    <div id="spin-msg" style="font-size:13px;color:var(--dark)">Running...</div>
+  </div>
+</div>
+
+<script>
+var currentStep = 0;
+var stepDone    = {extract:false,transform:false,value_map:false,export:false};
+var allTables   = [];
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(n){ return Number(n||0).toLocaleString(); }
+function spin(msg){ document.getElementById('overlay').className='overlay open';
+                    document.getElementById('spin-msg').textContent=msg||'Running...'; }
+function unspin(){ document.getElementById('overlay').className='overlay'; }
+
+// ── Navigation ─────────────────────────────────────────────────────────────────
+function goStep(n){
+  for(var i=0;i<5;i++){
+    document.getElementById('step-'+i).style.display = i===n?'':'none';
+    var nav = document.getElementById('nav-'+i);
+    nav.className = 'nav-step'+(i<n&&stepDone[['extract','transform','value_map','export'][i-1]]?' done':i===n?' active':'');
+    var pipe = document.getElementById('pipe-'+i);
+    pipe.className = 'pipe-step'+(i<n?' done':i===n?' active':'');
+  }
+  currentStep = n;
+}
+
+// ── Sidebar refresh ─────────────────────────────────────────────────────────────
+setInterval(refreshStatus, 3000);
+refreshStatus();
+
+function refreshStatus(){
+  fetch('/api/status').then(function(r){return r.json();}).then(function(d){
+    sb('sb-obj',  d.sap_object||'not set');
+    sb('sb-tmpl', d.template_path||'not loaded');
+    sb('sb-vmap', d.value_map_path||'not loaded');
+    sb('sb-src',  d.source_tables&&d.source_tables.length ? d.source_tables.join(', ') : 'none');
+    stepDone = d.step_done || stepDone;
+    var log = document.getElementById('log-content');
+    log.innerHTML = (d.log||[]).slice(0,20).map(function(l){
+      var cls = l.includes('⚠')?'warn':l.includes('✗')?'error':'';
+      return '<div class="log-line '+cls+'">'+esc(l)+'</div>';
+    }).join('');
+    checkSetupReady();
+  }).catch(function(){});
+}
+
+function sb(id, val){
+  var el = document.getElementById(id);
+  if(val && val!=='not set'&&val!=='not loaded'&&val!=='none'){
+    el.textContent=val; el.className='sb-file-val';
+  } else {
+    el.textContent=val||'—'; el.className='sb-file-val empty';
+  }
+}
+
+// ── Setup ──────────────────────────────────────────────────────────────────────
+function pick(id){ document.getElementById('inp-'+id).click(); }
+
+function uploadFile(input, endpoint){
+  if(!input.files||!input.files.length) return;
+  var fd = new FormData();
+  var isMulti = endpoint==='source';
+  if(isMulti){
+    for(var i=0;i<input.files.length;i++) fd.append('files', input.files[i]);
+  } else {
+    fd.append('file', input.files[0]);
+  }
+  var zoneId  = {template:'zone-tmpl',valuemap:'zone-vmap',source:'zone-src'}[endpoint];
+  var statId  = {template:'st-tmpl',  valuemap:'st-vmap',  source:'st-src'}[endpoint];
+  var zone    = document.getElementById(zoneId);
+  var stat    = document.getElementById(statId);
+  stat.textContent='Uploading...'; stat.style.color='var(--muted)';
+
+  fetch('/api/upload/'+endpoint,{method:'POST',body:fd})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.error){stat.textContent='✗ '+data.error;stat.style.color='var(--fail)';return;}
+      zone.className='upload-zone loaded';
+      if(endpoint==='source'){
+        stat.textContent='✓ '+data.saved.length+' table(s) loaded';
+        stat.style.color='var(--pass)';
+        renderTableChips(data.all_tables);
+        allTables = data.all_tables;
+      } else {
+        stat.textContent='✓ '+data.file+(data.sheets?' ('+data.sheets.length+' sheets)':'');
+        stat.style.color='var(--pass)';
+      }
+      checkSetupReady();
+      input.value='';
+    })
+    .catch(function(e){stat.textContent='✗ Error';stat.style.color='var(--fail)';});
+}
+
+function renderTableChips(tables){
+  document.getElementById('table-chips').innerHTML = tables.map(function(t){
+    return '<span class="table-chip">'+esc(t)+
+      '<button onclick="removeTable(\''+esc(t)+'\')">×</button></span>';
+  }).join('');
+}
+
+function removeTable(name){
+  fetch('/api/source/remove/'+encodeURIComponent(name),{method:'DELETE'})
+    .then(function(r){return r.json();})
+    .then(function(d){renderTableChips(d.remaining); allTables=d.remaining; checkSetupReady();});
+}
+
+function setConfig(){
+  var obj = document.getElementById('sap-obj-sel').value ||
+            document.getElementById('sap-obj-custom').value.trim();
+  var lang = document.getElementById('lang-sel').value;
+  if(!obj) return;
+  fetch('/api/config',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({sap_object:obj,preferred_lang:lang})});
+}
+
+function checkSetupReady(){
+  fetch('/api/status').then(function(r){return r.json();}).then(function(d){
+    var ready = d.template_path && d.source_tables && d.source_tables.length > 0 && d.sap_object;
+    document.getElementById('btn-start').disabled = !ready;
+    document.getElementById('setup-msg').textContent = ready
+      ? '✓ Ready — click Next to run Extract'
+      : 'Upload field template + source tables and select SAP object';
+  });
+}
+
+// ── Pipeline steps ────────────────────────────────────────────────────────────
+function runStep(step){
+  var msgs = {
+    extract:  'Parsing field template and loading source tables...',
+    transform:'Applying field mappings and join rules...',
+    valuemap: 'Applying value lookup tables and object rules...',
+  };
+  spin(msgs[step]||'Running...');
+
+  fetch('/api/run/'+step,{method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      unspin();
+      if(data.error){
+        document.getElementById(step+'-result').innerHTML =
+          '<div class="info info-err">✗ '+esc(data.error)+'</div>';
+        return;
+      }
+      renderStepResult(step, data);
+    })
+    .catch(function(e){unspin(); alert('Error: '+e);});
+}
+
+function renderStepResult(step, data){
+  if(step==='extract'){
+    var html = '<div class="info info-ok">✓ Extract complete</div>';
+    html += '<div class="kpi-row">'+
+      kpi(data.tables.length,'S4 Tables','ok')+
+      kpi(data.field_count,'Total Fields','')+
+      kpi(data.loaded_tables?data.loaded_tables.length:0,'Source Tables Loaded','ok')+
+    '</div>';
+    if(data.loaded_tables){
+      html += '<table class="result-table"><thead><tr><th>Legacy Table</th><th>Rows</th><th>Columns</th></tr></thead><tbody>';
+      data.loaded_tables.forEach(function(t){
+        html += '<tr><td><code>'+esc(t.name)+'</code></td><td>'+fmt(t.rows)+'</td><td>'+t.cols+'</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    document.getElementById('extract-result').innerHTML = html;
+    document.getElementById('btn-start').textContent = '→ Go to Transform';
+    document.getElementById('btn-start').onclick = function(){ goStep(2); };
+    document.getElementById('btn-start').disabled = false;
+
+  } else if(step==='transform'){
+    var html = '<div class="info info-ok">✓ Transform complete — field mapping applied</div>';
+    html += '<div class="kpi-row">'+kpi(data.tables.length,'S4 Tables Filled','ok')+'</div>';
+    html += '<table class="result-table"><thead><tr><th>S4 Table</th><th>Rows</th><th>Sample Columns</th></tr></thead><tbody>';
+    data.tables.forEach(function(t){
+      html += '<tr><td><code>'+esc(t.name)+'</code></td><td>'+fmt(t.rows)+'</td>'+
+              '<td style="font-size:11px">'+t.columns.map(function(c){return '<code>'+esc(c)+'</code>';}).join(' ')+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div class="btn-row" style="margin-top:12px">'+
+      '<button class="btn btn-primary" onclick="goStep(3)">Next: Value Mapping →</button></div>';
+    document.getElementById('transform-result').innerHTML = html;
+
+  } else if(step==='valuemap'){
+    var html = '<div class="info info-ok">✓ Value mapping complete</div>';
+    html += '<div class="kpi-row">'+
+      kpi(data.tables.length,'Tables Mapped','ok')+
+      kpi(data.unmapped_count,'Unmapped Groups',data.unmapped_count?'warn':'ok')+
+    '</div>';
+    if(data.unmapped_count){
+      html += '<div class="info info-warn">⚠ '+data.unmapped_count+
+              ' field(s) have values not in ValueMapping.xlsx — passed through unchanged. '+
+              'Check the Unmapped Values panel in Step 5.</div>';
+    }
+    html += '<div class="btn-row"><button class="btn btn-primary" onclick="goStep(4);setupExport()">'+
+            'Next: Export →</button></div>';
+    document.getElementById('valuemap-result').innerHTML = html;
+  }
+}
+
+function setupExport(){
+  // Populate preview table selector
+  fetch('/api/status').then(function(r){return r.json();}).then(function(d){
+    var tables = d.mapped_tables||d.transformed_tables||[];
+    var sel = document.getElementById('prev-table');
+    sel.innerHTML = tables.map(function(t){
+      return '<option value="'+esc(t)+'">'+esc(t)+'</option>';
+    }).join('');
+    if(tables.length){ document.getElementById('preview-card').style.display=''; }
+
+    // Load unmapped
+    fetch('/api/unmapped').then(function(r){return r.json();}).then(function(u){
+      if(u.count){
+        document.getElementById('unmapped-card').style.display='';
+        var html='<table class="result-table"><thead><tr><th>Table</th><th>Column</th><th>Field</th><th>Unmapped Values</th><th>Count</th></tr></thead><tbody>';
+        u.summary.forEach(function(r){
+          html+='<tr><td><code>'+esc(r.table)+'</code></td><td><code>'+esc(r.column)+'</code></td>'+
+                '<td><code>'+esc(r.field)+'</code></td><td>'+esc(r.values)+'</td><td>'+r.count+'</td></tr>';
+        });
+        html+='</tbody></table>';
+        document.getElementById('unmapped-content').innerHTML=html;
+      }
+    });
+  });
+}
+
+function runExport(){
+  var fmt = document.getElementById('export-fmt').value;
+  spin('Writing output files...');
+  fetch('/api/run/export',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({format:fmt})})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      unspin();
+      if(data.error){alert('Error: '+data.error);return;}
+      var html = '<div class="info info-ok">✓ '+data.files.length+' file(s) exported</div>';
+      html += '<ul style="margin:10px 0 0 14px">';
+      data.files.forEach(function(f){
+        html += '<li style="font-size:13px;margin-bottom:4px">'+
+          '<a href="/api/download/'+encodeURIComponent(f)+'" '+
+          'style="color:var(--indigo);font-weight:600">📥 '+esc(f)+'</a></li>';
+      });
+      html += '</ul>';
+      document.getElementById('export-result').innerHTML=html;
+      document.getElementById('dl-all').style.display='';
+    }).catch(function(e){unspin();alert('Error: '+e);});
+}
+
+function loadPreview(){
+  var stage = document.getElementById('prev-stage').value;
+  var table = document.getElementById('prev-table').value;
+  if(!table) return;
+  fetch('/api/preview/'+stage+'/'+encodeURIComponent(table))
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.error){
+        document.getElementById('preview-content').innerHTML=
+          '<div class="info info-warn">'+esc(data.error)+'</div>';
+        return;
+      }
+      var cols = data.columns||[];
+      var rows = data.data||[];
+      var html = '<p style="font-size:12px;color:var(--muted);margin-bottom:8px">'+
+        fmt(data.rows)+' rows × '+cols.length+' columns (showing first 20)</p>'+
+        '<div style="overflow-x:auto"><table class="data-table"><thead><tr>'+
+        cols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+
+        '</tr></thead><tbody>';
+      rows.forEach(function(r){
+        html+='<tr>'+cols.map(function(c){
+          return '<td>'+esc(r[c]||'')+'</td>';
+        }).join('')+'</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('preview-content').innerHTML=html;
+    });
+}
+
+function kpi(val, lbl, cls){
+  return '<div class="kpi"><div class="kpi-val '+(cls||'')+'">'+fmt(val)+'</div>'+
+         '<div class="kpi-lbl">'+lbl+'</div></div>';
+}
+
+function resetAll(){
+  if(!confirm('Reset all data and start over?')) return;
+  fetch('/api/reset',{method:'POST'}).then(function(){location.reload();});
+}
+</script>
+</body>
+</html>
